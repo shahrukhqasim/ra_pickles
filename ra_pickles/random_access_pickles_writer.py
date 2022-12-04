@@ -16,7 +16,7 @@ class RandomAccessPicklesWriter:
 
         # self.file_number=0
 
-    def process(self, data):
+    def _process(self, data):
         # t1 = time.time()
         binary_data = io.BytesIO()
         gzipfile = gzip.GzipFile(fileobj=binary_data, mode='wb', compresslevel=1)
@@ -26,7 +26,7 @@ class RandomAccessPicklesWriter:
 
         return gzip_binary_data
 
-    def unprocess(self, data):
+    def _unprocess(self, data):
         binary_data = io.BytesIO(data)
         gzipfile = gzip.GzipFile(fileobj=binary_data, mode='rb')
         data_loaded = pickle.load(gzipfile)
@@ -62,7 +62,7 @@ class RandomAccessPicklesWriter:
 
         # self.file_number += 1
 
-    def read_file(self, file):
+    def _read_file(self, file):
         filename_data = os.path.join(file)
         filename_meta = os.path.splitext(file)[0] + '.meta'
 
@@ -73,13 +73,13 @@ class RandomAccessPicklesWriter:
         all_data_loaded = []
         with open(filename_data, 'rb') as f:
             for s in splits:
-                all_data_loaded.append(self.unprocess(f.read(s)))
+                all_data_loaded.append(self._unprocess(f.read(s)))
 
         return all_data_loaded
 
 
     def add(self, sample):
-        processed_data = self.process(sample)
+        processed_data = self._process(sample)
 
         self.data_queue.put(processed_data)
 

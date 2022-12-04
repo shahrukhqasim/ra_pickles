@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 
 HERE = pathlib.Path(__file__).parent
 
-VERSION = '0.8.2'
+VERSION = '0.8.5'
 PACKAGE_NAME = 'ra_pickles'
 AUTHOR = 'Shah Rukh Qasim'
 AUTHOR_EMAIL = 'shah.rukh.qasim@cern.ch'
