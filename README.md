@@ -11,6 +11,9 @@ two datasets can be added together to create a larger dataset without additional
 This also allows multiple applications to add elements to the dataset in parallel. An example
 is multiple simulations running in parallel.
 
+## Installation
+`pip3 install ra-pickles`
+
 ## Example
 First import all the packages
 ```
