@@ -12,6 +12,12 @@ from tqdm import tqdm
 
 class RandomAccessPicklesReader():
     def __init__(self, folder=None, files=None):
+        """
+        :param folder: The folder in which to create the dataset in
+        :param files: Or just give it a list of files ('.bin') to read. The folder parameter will not be used if
+                      files is not None
+        """
+
         super(RandomAccessPicklesReader).__init__()
 
         if int(folder==None) + int(files==None) != 1:
@@ -27,10 +33,10 @@ class RandomAccessPicklesReader():
             self.data_files = files
 
         self.data_files.sort()
-        self.read_meta()
+        self._read_meta()
         self.read_n_queue = None
 
-    def read_meta(self):
+    def _read_meta(self):
         meta_files = [os.path.splitext(x)[0]+'.meta' for x in self.data_files]
 
         self.metadata = []
@@ -49,6 +55,12 @@ class RandomAccessPicklesReader():
         return self
 
     def get_total(self):
+        """
+        Get total number of entries in the dataset
+
+        :return: An integer representing total number of entries
+        """
+
         return int(np.sum([len(x)-1 for x in self.metadata]))
 
     def get_nth_file_and_loc(self, n):
@@ -70,7 +82,7 @@ class RandomAccessPicklesReader():
         bin_length = reading_seek_end - reading_seek_start
         return the_file, reading_seek_start, bin_length
 
-    def data_reading_thread(self, process):
+    def _data_reading_thread(self, process):
         while True:
             try:
                 nth = self.read_n_queue.get(timeout=3)
@@ -79,7 +91,7 @@ class RandomAccessPicklesReader():
             except queue.Empty:
                 continue
             try:
-                result = self.get_nth(nth, process=process)
+                result = self.get_element(nth, process=process)
             except OSError as e:
                 print("Error occurred")
                 result = None
@@ -87,30 +99,51 @@ class RandomAccessPicklesReader():
             self.read_n_queue_output.put((nth, result))
 
 
-    def start_async_threads(self, n_theads, process):
+    def start_parallel_retrieval_threads(self, n_theads):
+        """
+        Start threads to retrieve multiple elements in parallel (using get_multi_in_parallel function).
+
+        :param n_theads: Number of threads to use
+        :return: Doesn't return anything
+        """
         the_threads = []
         self.read_n_queue = queue.Queue()
         self.read_n_queue_output = queue.Queue()
 
         for i in range(n_theads):
-            t = threading.Thread(target=self.data_reading_thread, args=(process,))
+            t = threading.Thread(target=self._data_reading_thread, args=(True,))
             the_threads.append(t)
             t.start()
 
-        self.data_reading_threads = the_threads
+        self._data_reading_threads = the_threads
 
-    def close_async_threads(self):
-        for _ in self.data_reading_threads:
+    def close_parallel_retrieval_threads(self):
+        """
+        Close the parallel retrieval threads
+        :return: Doesn't return anything
+        """
+
+        for _ in self._data_reading_threads:
             self.read_n_queue.put(None)
             self.read_n_queue.put(None)
 
-        for x in self.data_reading_threads:
+        for x in self._data_reading_threads:
             x.join()
 
-    def get_N_async(self, N, timeout=30):
-        if self.read_n_queue is None:
-            raise RuntimeError('Call start async threads before!')
 
+    def get_multi_in_parallel(self, indices, timeout=30):
+        """
+        Get multiple dataset elements in parallel for a faster access
+
+        :param indices: A list of indices what to retreive
+        :param timeout: Timeout in secconds
+        :return: A list of retreived dataset elements
+        """
+
+        if self.read_n_queue is None:
+            raise RuntimeError('Please call start_async_threads before!')
+
+        N = indices
         for n in N:
             self.read_n_queue.put(n)
         N = set(N)
@@ -139,9 +172,9 @@ class RandomAccessPicklesReader():
         return results
 
 
-    def get_nth(self, n, process=True):
+    def get_element(self, index, process=True):
         # t1 = time.time()
-        the_file, reading_seek_start, bin_length = self.get_nth_file_and_loc(n)
+        the_file, reading_seek_start, bin_length = self.get_nth_file_and_loc(index)
 
         # print("Reading took",time.time()-t1,"seconds")
         # t1 = time.time()
@@ -155,7 +188,7 @@ class RandomAccessPicklesReader():
 
         # print("Bytes",len(d))
         if process:
-            d = self.unprocess(d)
+            d = self._unprocess(d)
         # print("Unprocessing took",time.time()-t1,"seconds")
         file.close()
         # print("in:",time.time()-t1)
@@ -172,7 +205,7 @@ class RandomAccessPicklesReader():
         self.current_file.seek(self.metadata[self.current_file_index][self.current_data_index])
 
         bin_length = self.metadata[self.current_file_index][self.current_data_index+1]-self.metadata[self.current_file_index][self.current_data_index]
-        d = self.unprocess(self.current_file.read(bin_length))
+        d = self._unprocess(self.current_file.read(bin_length))
 
         self.current_data_index += 1
         self.current_file.close()
@@ -190,12 +223,16 @@ class RandomAccessPicklesReader():
         return d
 
     def close(self):
+        """
+        Close the reader
+        :return: Nothing
+        """
         if self.current_file is not None:
             self.current_file.close()
             self.current_file = None
 
 
-    def unprocess(self, data):
+    def _unprocess(self, data):
         binary_data = io.BytesIO(data)
         gzipfile = gzip.GzipFile(fileobj=binary_data, mode='rb')
         data_loaded = pickle.load(gzipfile)
@@ -203,7 +240,7 @@ class RandomAccessPicklesReader():
 
         return data_loaded
 
-    def process(self, data):
+    def _process(self, data):
         binary_data = io.BytesIO()
         gzipfile = gzip.GzipFile(fileobj=binary_data, mode='wb')
         pickle.dump(data, gzipfile)
