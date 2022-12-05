@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 
 HERE = pathlib.Path(__file__).parent
 
-VERSION = '0.8.6'
+VERSION = '0.8.7'
 PACKAGE_NAME = 'ra_pickles'
 AUTHOR = 'Shah Rukh Qasim'
 AUTHOR_EMAIL = 'shah.rukh.qasim@cern.ch'
@@ -16,7 +16,7 @@ LONG_DESC_TYPE = "text/markdown"
 
 INSTALL_REQUIRES = [
       'numpy',
-      'pandas'
+      'tqdm',
 ]
 
 setup(name=PACKAGE_NAME,
